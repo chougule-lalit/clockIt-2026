@@ -7,7 +7,7 @@ part of 'timesheet_bucket_repository.dart';
 // **************************************************************************
 
 String _$timesheetBucketRepositoryHash() =>
-    r'b63dfe1bc0814c7855668d0d2b79a890d19b41f9';
+    r'e81c8cbdbede7f95afdb8168a6b1caa2ce188f22';
 
 /// See also [timesheetBucketRepository].
 @ProviderFor(timesheetBucketRepository)

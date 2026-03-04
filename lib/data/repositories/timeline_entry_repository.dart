@@ -1,12 +1,12 @@
 import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/app_database.dart';
 
 part 'timeline_entry_repository.g.dart';
 
 @riverpod
-TimelineEntryRepository timelineEntryRepository(TimelineEntryRepositoryRef ref) {
+TimelineEntryRepository timelineEntryRepository(Ref ref) {
   return TimelineEntryRepository(ref.read(appDatabaseProvider));
 }
 

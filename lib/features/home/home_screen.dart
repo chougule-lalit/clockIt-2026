@@ -1,3 +1,5 @@
+import 'package:drift/drift.dart' hide Column;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -226,7 +228,6 @@ class _SmartClockCard extends ConsumerWidget {
     final notifier = ref.read(shiftNotifierProvider.notifier);
     DateTime? newClockIn = state.shift.clockIn;
     DateTime? newClockOut = state.shift.clockOut;
-    final now = DateTime.now();
 
     await showDialog<void>(
       context: context,
@@ -612,7 +613,6 @@ class _TimelineSlot extends ConsumerStatefulWidget {
 class _TimelineSlotState extends ConsumerState<_TimelineSlot> {
   bool _expanded = false;
   final _descController = TextEditingController();
-  CategoryTag? _selectedCategory;
 
   @override
   void initState() {

@@ -1,6 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/app_database.dart';
 
 part 'user_profile_repository.g.dart';
@@ -8,7 +8,7 @@ part 'user_profile_repository.g.dart';
 const _kOnboardingKey = 'onboarding_complete';
 
 @riverpod
-UserProfileRepository userProfileRepository(UserProfileRepositoryRef ref) {
+UserProfileRepository userProfileRepository(Ref ref) {
   final db = ref.read(appDatabaseProvider);
   return UserProfileRepository(db);
 }

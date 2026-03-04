@@ -13,7 +13,7 @@ part 'app_router.g.dart';
 const _kOnboardingKey = 'onboarding_complete';
 
 @Riverpod(keepAlive: true)
-GoRouter appRouter(AppRouterRef ref) {
+GoRouter appRouter(Ref ref) {
   return GoRouter(
     initialLocation: '/splash',
     routes: [

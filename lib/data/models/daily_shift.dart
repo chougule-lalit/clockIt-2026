@@ -19,7 +19,6 @@ class DailyShifts extends Table {
   /// Positive = overtime, negative = early logout, null = in progress.
   RealColumn get overtime => real().nullable()();
 
-  @override
   List<Set<Column<Object>>>? get uniqueColumns => [
         {date},
       ];

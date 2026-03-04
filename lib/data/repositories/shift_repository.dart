@@ -1,12 +1,12 @@
 import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/app_database.dart';
 
 part 'shift_repository.g.dart';
 
 @riverpod
-ShiftRepository shiftRepository(ShiftRepositoryRef ref) {
+ShiftRepository shiftRepository(Ref ref) {
   return ShiftRepository(ref.read(appDatabaseProvider));
 }
 

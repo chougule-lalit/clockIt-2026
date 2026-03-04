@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-
 import '../../core/notification_service.dart';
 import '../../data/database/app_database.dart';
 import '../../data/repositories/shift_repository.dart';
@@ -202,7 +201,7 @@ class ShiftNotifier extends _$ShiftNotifier {
 
 /// Watches today's shift live from the database (for reactive UI rebuilds).
 @riverpod
-Stream<DailyShift?> todayShiftStream(TodayShiftStreamRef ref) {
+Stream<DailyShift?> todayShiftStream(Ref ref) {
   final repo = ref.watch(shiftRepositoryProvider);
   return repo.watchTodayShift();
 }

@@ -7,7 +7,7 @@ part of 'timeline_entry_repository.dart';
 // **************************************************************************
 
 String _$timelineEntryRepositoryHash() =>
-    r'cdbd7cab699581b1605a15a5b2dc8254980bde1a';
+    r'3468b80e814bf486e72d0f14df8ae13d9aaf142d';
 
 /// See also [timelineEntryRepository].
 @ProviderFor(timelineEntryRepository)

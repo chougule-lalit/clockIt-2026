@@ -1,12 +1,11 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/app_database.dart';
 
 part 'timesheet_bucket_repository.g.dart';
 
 @riverpod
-TimesheetBucketRepository timesheetBucketRepository(
-    TimesheetBucketRepositoryRef ref) {
+TimesheetBucketRepository timesheetBucketRepository(Ref ref) {
   final db = ref.read(appDatabaseProvider);
   return TimesheetBucketRepository(db);
 }
