@@ -7,9 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/database/app_database.dart';
 import '../../data/repositories/scratchpad_repository.dart';
-import '../../data/repositories/shift_repository.dart';
 import '../../data/repositories/timeline_entry_repository.dart';
-import '../../data/repositories/task_repository.dart';
 import '../home/shift_notifier.dart';
 import 'task_notifier.dart';
 
@@ -303,25 +301,34 @@ class _QuickAddBar extends ConsumerWidget {
 // Task Card
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _TaskCard extends ConsumerWidget {
+class _TaskCard extends ConsumerStatefulWidget {
   const _TaskCard({required this.task});
   final TaskItem task;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TaskCard> createState() => _TaskCardState();
+}
+
+class _TaskCardState extends ConsumerState<_TaskCard> {
+  bool _isCompletedLocal = false;
+
+  @override
+  Widget build(BuildContext context) {
     final notifier = ref.read(taskNotifierProvider.notifier);
     final categories = ref.watch(allCategoriesProvider);
 
+    final isCompletedVisual = widget.task.isCompleted || _isCompletedLocal;
+
     final catName = categories.maybeWhen(
       data: (cats) => cats
-          .where((c) => c.id == task.categoryId)
+          .where((c) => c.id == widget.task.categoryId)
           .map((c) => c.tagName)
           .firstOrNull,
       orElse: () => null,
     );
 
     return Dismissible(
-      key: ValueKey('task_${task.id}'),
+      key: ValueKey('task_${widget.task.id}'),
       direction: DismissDirection.endToStart,
       background: Container(
         decoration: BoxDecoration(
@@ -333,7 +340,7 @@ class _TaskCard extends ConsumerWidget {
         child: const Icon(Icons.delete_rounded, color: AppColors.danger),
       ),
       confirmDismiss: (_) async {
-        await notifier.deleteTask(task.id);
+        await notifier.deleteTask(widget.task.id);
         return false;
       },
       child: Container(
@@ -342,7 +349,7 @@ class _TaskCard extends ConsumerWidget {
           color: AppColors.surface1,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: task.isCompleted
+            color: isCompletedVisual
                 ? AppColors.divider
                 : AppColors.accentPrimary.withValues(alpha: 0.15),
           ),
@@ -352,27 +359,36 @@ class _TaskCard extends ConsumerWidget {
           children: [
             // Checkbox
             GestureDetector(
-              onTap: () => task.isCompleted
-                  ? notifier.uncompleteTask(task.id)
-                  : notifier.completeTask(task.id),
+              onTap: () {
+                if (widget.task.isCompleted) {
+                  notifier.uncompleteTask(widget.task.id);
+                } else {
+                  setState(() => _isCompletedLocal = true);
+                  Future.delayed(const Duration(milliseconds: 800), () {
+                    if (mounted) {
+                      notifier.completeTask(widget.task.id);
+                    }
+                  });
+                }
+              },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 width: 22,
                 height: 22,
                 margin: const EdgeInsets.only(top: 2, right: 12),
                 decoration: BoxDecoration(
-                  color: task.isCompleted
+                  color: isCompletedVisual
                       ? AppColors.success
                       : Colors.transparent,
                   border: Border.all(
-                    color: task.isCompleted
+                    color: isCompletedVisual
                         ? AppColors.success
                         : AppColors.textPlaceholder,
                     width: 2,
                   ),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: task.isCompleted
+                child: isCompletedVisual
                     ? const Icon(Icons.check_rounded,
                         size: 14, color: Colors.white)
                     : null,
@@ -385,12 +401,12 @@ class _TaskCard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    task.description,
+                    widget.task.description,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: task.isCompleted
+                          color: isCompletedVisual
                               ? AppColors.textPlaceholder
                               : AppColors.textPrimary,
-                          decoration: task.isCompleted
+                          decoration: isCompletedVisual
                               ? TextDecoration.lineThrough
                               : null,
                           decorationColor: AppColors.textPlaceholder,
@@ -420,9 +436,9 @@ class _TaskCard extends ConsumerWidget {
             ),
 
             // Start Focus button (only for active tasks)
-            if (!task.isCompleted) ...[
+            if (!isCompletedVisual) ...[
               const SizedBox(width: 8),
-              _StartFocusButton(task: task),
+              _StartFocusButton(task: widget.task),
             ],
           ],
         ),

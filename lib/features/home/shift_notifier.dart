@@ -5,6 +5,7 @@ import '../../data/database/app_database.dart';
 import '../../data/repositories/shift_repository.dart';
 import '../../data/repositories/timeline_entry_repository.dart';
 import '../../data/repositories/user_profile_repository.dart';
+// import '../../data/models/category_tag.dart';
 
 part 'shift_notifier.g.dart';
 
@@ -212,6 +213,6 @@ final entriesForShiftProvider =
   return ref.watch(timelineEntryRepositoryProvider).watchEntriesForShift(shiftId);
 });
 
-final allCategoriesProvider = StreamProvider.autoDispose<List<ShiftCategory>>((ref) {
+final allCategoriesProvider = StreamProvider.autoDispose<List<CategoryTag>>((ref) {
   return ref.watch(shiftRepositoryProvider).watchAllCategories();
 });

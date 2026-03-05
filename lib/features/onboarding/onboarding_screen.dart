@@ -20,7 +20,7 @@ part 'onboarding_screen.g.dart';
 class OnboardingFormState {
   const OnboardingFormState({
     this.targetWorkHours = 8.0,
-    this.targetBreakHours = 0.75,
+    this.targetBreakMins = 45,
     this.defaultStartHour = 9,
     this.defaultStartMinute = 30,
     this.notificationLeadMins = 15,
@@ -28,7 +28,7 @@ class OnboardingFormState {
   });
 
   final double targetWorkHours;
-  final double targetBreakHours;
+  final int targetBreakMins;
   final int defaultStartHour;
   final int defaultStartMinute;
   final int notificationLeadMins;
@@ -36,7 +36,7 @@ class OnboardingFormState {
 
   OnboardingFormState copyWith({
     double? targetWorkHours,
-    double? targetBreakHours,
+    int? targetBreakMins,
     int? defaultStartHour,
     int? defaultStartMinute,
     int? notificationLeadMins,
@@ -44,7 +44,7 @@ class OnboardingFormState {
   }) =>
       OnboardingFormState(
         targetWorkHours: targetWorkHours ?? this.targetWorkHours,
-        targetBreakHours: targetBreakHours ?? this.targetBreakHours,
+        targetBreakMins: targetBreakMins ?? this.targetBreakMins,
         defaultStartHour: defaultStartHour ?? this.defaultStartHour,
         defaultStartMinute: defaultStartMinute ?? this.defaultStartMinute,
         notificationLeadMins: notificationLeadMins ?? this.notificationLeadMins,
@@ -62,7 +62,7 @@ class OnboardingNotifier extends _$OnboardingNotifier {
   OnboardingFormState build() => const OnboardingFormState();
 
   void setWorkHours(double v) => state = state.copyWith(targetWorkHours: v);
-  void setBreakHours(double v) => state = state.copyWith(targetBreakHours: v);
+  void setBreakMins(int v) => state = state.copyWith(targetBreakMins: v);
   void setStartTime(int hour, int minute) =>
       state = state.copyWith(defaultStartHour: hour, defaultStartMinute: minute);
   void setLeadMins(int v) => state = state.copyWith(notificationLeadMins: v);
@@ -74,7 +74,7 @@ class OnboardingNotifier extends _$OnboardingNotifier {
       await repo.saveProfile(
         UserProfilesCompanion(
           targetWorkHours: Value(state.targetWorkHours),
-          targetBreakHours: Value(state.targetBreakHours),
+          targetBreakHours: Value(state.targetBreakMins / 60.0),
           defaultStartHour: Value(state.defaultStartHour),
           defaultStartMinute: Value(state.defaultStartMinute),
           notificationLeadMins: Value(state.notificationLeadMins),
@@ -100,20 +100,20 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _workHoursCtrl;
-  late final TextEditingController _breakHoursCtrl;
+  late final TextEditingController _breakMinsCtrl;
 
   @override
   void initState() {
     super.initState();
     final s = ref.read(onboardingNotifierProvider);
     _workHoursCtrl = TextEditingController(text: s.targetWorkHours.toString());
-    _breakHoursCtrl = TextEditingController(text: s.targetBreakHours.toString());
+    _breakMinsCtrl = TextEditingController(text: s.targetBreakMins.toString());
   }
 
   @override
   void dispose() {
     _workHoursCtrl.dispose();
-    _breakHoursCtrl.dispose();
+    _breakMinsCtrl.dispose();
     super.dispose();
   }
 
@@ -138,7 +138,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (!_formKey.currentState!.validate()) return;
     final notifier = ref.read(onboardingNotifierProvider.notifier);
     notifier.setWorkHours(double.tryParse(_workHoursCtrl.text) ?? 8.0);
-    notifier.setBreakHours(double.tryParse(_breakHoursCtrl.text) ?? 0.75);
+    notifier.setBreakMins(int.tryParse(_breakMinsCtrl.text) ?? 45);
     await notifier.save();
     if (mounted) context.goNamed('home');
   }
@@ -217,23 +217,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 const SizedBox(height: 24),
 
                 // ── Target Break Hours ──
-                _SectionLabel(label: 'Target Break Hours'),
+                _SectionLabel(label: 'Target Break Time'),
                 const SizedBox(height: 8),
                 TextFormField(
-                  controller: _breakHoursCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  controller: _breakMinsCtrl,
+                  keyboardType: TextInputType.number,
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                    FilteringTextInputFormatter.digitsOnly,
                   ],
                   style: Theme.of(context).textTheme.bodyLarge,
                   decoration: const InputDecoration(
-                    hintText: 'e.g. 0.75 for 45 min',
-                    suffixText: 'hrs',
+                    hintText: 'e.g. 45',
+                    suffixText: 'mins',
                   ),
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Required';
-                    final n = double.tryParse(v);
-                    if (n == null || n < 0 || n > 8) return 'Enter a valid number';
+                    final n = int.tryParse(v);
+                    if (n == null || n < 0) return 'Enter a valid number';
                     return null;
                   },
                 ),

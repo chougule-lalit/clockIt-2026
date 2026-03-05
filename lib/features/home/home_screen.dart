@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/database/app_database.dart';
-import '../../data/repositories/shift_repository.dart';
 import '../../data/repositories/timeline_entry_repository.dart';
 import '../tasks/tasks_screen.dart';
 import 'shift_notifier.dart';
@@ -31,9 +30,37 @@ DateTime _roundToNearest(DateTime dt, int minutes) {
       : dt.add(Duration(minutes: minutes - rem));
 }
 
+/// Calculate the actual non-overlapping chronologically elapsed minutes from timeline entries.
+int _calcTotalLoggedMinutes(List<TimelineEntry> entries) {
+  if (entries.isEmpty) return 0;
+  final sorted = List<TimelineEntry>.from(entries)
+    ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+  int totalMinutes = 0;
+  DateTime currentStart = sorted.first.startTime;
+  DateTime currentEnd = sorted.first.endTime;
+
+  for (int i = 1; i < sorted.length; i++) {
+    final e = sorted[i];
+    if (e.startTime.isBefore(currentEnd) || e.startTime.isAtSameMomentAs(currentEnd)) {
+      if (e.endTime.isAfter(currentEnd)) {
+        currentEnd = e.endTime;
+      }
+    } else {
+      totalMinutes += currentEnd.difference(currentStart).inMinutes;
+      currentStart = e.startTime;
+      currentEnd = e.endTime;
+    }
+  }
+  totalMinutes += currentEnd.difference(currentStart).inMinutes;
+  return totalMinutes;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Shell – Bottom Navigation
 // ─────────────────────────────────────────────────────────────────────────────
+
+final expandedSlotIdProvider = StateProvider<String?>((ref) => null);
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -76,7 +103,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           : _selectedIndex == 1
               ? const TasksScreen()
               : _ComingSoonBody(label: _labels[_selectedIndex]),
-      floatingActionButton: _selectedIndex == 0 && shiftId != null
+      floatingActionButton: _selectedIndex == 0 && shiftId != null && ref.watch(expandedSlotIdProvider) == null
           ? FloatingActionButton(
               backgroundColor: AppColors.accentPrimary,
               foregroundColor: Colors.white,
@@ -176,10 +203,7 @@ class _TimelineHeader extends ConsumerWidget {
     final targetHours = state.profile.targetWorkHours;
 
     final loggedMinutes = entriesAsync.maybeWhen(
-      data: (entries) => entries.fold<int>(
-        0,
-        (sum, e) => sum + e.endTime.difference(e.startTime).inMinutes,
-      ),
+      data: (entries) => _calcTotalLoggedMinutes(entries),
       orElse: () => 0,
     );
 
@@ -647,36 +671,27 @@ class _TimelineSliver extends ConsumerWidget {
       data: (entries) {
         final today = DateTime.now();
 
-        // Build list of hourly slots.
-        final hourSlots = List.generate(
-          (endHour - startHour + 1).clamp(0, 24),
-          (i) => startHour + i,
-        );
-
-        // Find off-schedule entries (those that don't start on an exact hour).
-        final offSchedule = entries.where((e) {
-          return e.startTime.minute != 0 &&
-              !hourSlots.any((h) => e.startTime.hour == h);
-        }).toList();
-
         // Build a merged, chronologically sorted list of items.
-        // Each item is either an int (hour slot) or a TimelineEntry (off-sched).
-        final items = <dynamic>[...hourSlots];
-        for (final e in offSchedule) {
-          // Insert at correct position.
-          final insertIdx = items.indexWhere((item) {
-            if (item is int) return item > e.startTime.hour;
-            if (item is TimelineEntry) {
-              return item.startTime.isAfter(e.startTime);
-            }
-            return false;
-          });
-          if (insertIdx == -1) {
-            items.add(e);
-          } else {
-            items.insert(insertIdx, e);
-          }
+        // Each item is either an int (hour slot) or a TimelineEntry (tasks occurring across or on hours).
+        final items = <dynamic>[];
+        for (final h in hourSlots) {
+          final hasExact = entries.any((e) => e.startTime.hour == h && e.startTime.minute == 0);
+          if (!hasExact) items.add(h);
         }
+        
+        items.addAll(entries);
+        
+        items.sort((a, b) {
+          final timeA = a is int ? DateTime(today.year, today.month, today.day, a, 0) : (a as TimelineEntry).startTime;
+          final timeB = b is int ? DateTime(today.year, today.month, today.day, b, 0) : (b as TimelineEntry).startTime;
+          
+          final cmp = timeA.compareTo(timeB);
+          if (cmp != 0) return cmp;
+          
+          if (a is int && b is TimelineEntry) return -1;
+          if (a is TimelineEntry && b is int) return 1;
+          return 0;
+        });
 
         return SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -686,32 +701,29 @@ class _TimelineSliver extends ConsumerWidget {
                 final item = items[i];
 
                 if (item is int) {
-                  // Standard hourly slot.
+                  // Standard hourly slot marker.
                   final hour = item;
-                  final slotStart = DateTime(
-                      today.year, today.month, today.day, hour, 0);
+                  final slotStart = DateTime(today.year, today.month, today.day, hour, 0);
                   final slotEnd = slotStart.add(const Duration(hours: 1));
-
-                  final entry = entries.where((e) {
-                    return e.startTime.hour == hour && e.startTime.minute == 0;
-                  }).firstOrNull;
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _TimelineSlot(
+                      key: ValueKey('hour_$hour'),
                       hour: hour,
                       shiftId: shiftId,
-                      existingEntry: entry,
+                      existingEntry: null,
                       slotStart: slotStart,
                       slotEnd: slotEnd,
                       isOffSchedule: false,
                     ),
                   );
                 } else if (item is TimelineEntry) {
-                  // Off-schedule entry.
+                  // Explicit block. Render as standalone item spanning its duration.
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _TimelineSlot(
+                      key: ValueKey('entry_${item.id}'),
                       hour: item.startTime.hour,
                       shiftId: shiftId,
                       existingEntry: item,
@@ -748,6 +760,7 @@ class _TimelineSliver extends ConsumerWidget {
 
 class _TimelineSlot extends ConsumerStatefulWidget {
   const _TimelineSlot({
+    super.key,
     required this.hour,
     required this.shiftId,
     required this.existingEntry,
@@ -768,7 +781,20 @@ class _TimelineSlot extends ConsumerStatefulWidget {
 }
 
 class _TimelineSlotState extends ConsumerState<_TimelineSlot> {
-  bool _expanded = false;
+  String get _slotKey => widget.existingEntry != null
+      ? 'entry_${widget.existingEntry!.id}'
+      : 'hour_${widget.hour}';
+
+  bool get _expanded => ref.watch(expandedSlotIdProvider) == _slotKey;
+
+  void _toggleExpanded() {
+    final notifier = ref.read(expandedSlotIdProvider.notifier);
+    if (notifier.state == _slotKey) {
+      notifier.state = null;
+    } else {
+      notifier.state = _slotKey;
+    }
+  }
 
   String get _timeLabel {
     if (widget.isOffSchedule) {
@@ -799,7 +825,7 @@ class _TimelineSlotState extends ConsumerState<_TimelineSlot> {
     final hasEntry = widget.existingEntry != null;
 
     final card = GestureDetector(
-      onTap: () => setState(() => _expanded = !_expanded),
+      onTap: _toggleExpanded,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
@@ -839,8 +865,8 @@ class _TimelineSlotState extends ConsumerState<_TimelineSlot> {
                   existingEntry: widget.existingEntry,
                   slotStart: widget.slotStart,
                   slotEnd: widget.slotEnd,
-                  onSaved: () => setState(() => _expanded = false),
-                  onCancelled: () => setState(() => _expanded = false),
+                  onSaved: _toggleExpanded,
+                  onCancelled: _toggleExpanded,
                   onDeleted: hasEntry ? _deleteEntry : null,
                 )
               : _CollapsedSlotContent(
@@ -991,6 +1017,9 @@ class _CollapsedSlotContent extends ConsumerWidget {
       orElse: () => null,
     );
 
+    final desc = entry!.description.trim();
+    final textToShow = desc.isEmpty ? 'No description' : desc;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
@@ -1015,13 +1044,14 @@ class _CollapsedSlotContent extends ConsumerWidget {
           ],
           Expanded(
             child: Text(
-              entry!.description.isEmpty
-                  ? 'No description'
-                  : entry!.description,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppColors.textPrimary),
+              textToShow,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: desc.isEmpty
+                        ? AppColors.textPlaceholder
+                        : AppColors.textPrimary,
+                    fontStyle:
+                        desc.isEmpty ? FontStyle.italic : FontStyle.normal,
+                  ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),

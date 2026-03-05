@@ -21,7 +21,7 @@ part 'settings_screen.g.dart';
 class SettingsFormState {
   const SettingsFormState({
     this.targetWorkHours = 8.0,
-    this.targetBreakHours = 0.75,
+    this.targetBreakMins = 45,
     this.defaultStartHour = 9,
     this.defaultStartMinute = 30,
     this.notificationLeadMins = 15,
@@ -31,7 +31,7 @@ class SettingsFormState {
   });
 
   final double targetWorkHours;
-  final double targetBreakHours;
+  final int targetBreakMins;
   final int defaultStartHour;
   final int defaultStartMinute;
   final int notificationLeadMins;
@@ -41,7 +41,7 @@ class SettingsFormState {
 
   SettingsFormState copyWith({
     double? targetWorkHours,
-    double? targetBreakHours,
+    int? targetBreakMins,
     int? defaultStartHour,
     int? defaultStartMinute,
     int? notificationLeadMins,
@@ -51,7 +51,7 @@ class SettingsFormState {
   }) =>
       SettingsFormState(
         targetWorkHours: targetWorkHours ?? this.targetWorkHours,
-        targetBreakHours: targetBreakHours ?? this.targetBreakHours,
+        targetBreakMins: targetBreakMins ?? this.targetBreakMins,
         defaultStartHour: defaultStartHour ?? this.defaultStartHour,
         defaultStartMinute: defaultStartMinute ?? this.defaultStartMinute,
         notificationLeadMins: notificationLeadMins ?? this.notificationLeadMins,
@@ -79,7 +79,7 @@ class SettingsNotifier extends _$SettingsNotifier {
     if (p != null) {
       state = SettingsFormState(
         targetWorkHours: p.targetWorkHours,
-        targetBreakHours: p.targetBreakHours,
+        targetBreakMins: (p.targetBreakHours * 60).round(),
         defaultStartHour: p.defaultStartHour,
         defaultStartMinute: p.defaultStartMinute,
         notificationLeadMins: p.notificationLeadMins,
@@ -91,7 +91,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   }
 
   void setWorkHours(double v) => state = state.copyWith(targetWorkHours: v);
-  void setBreakHours(double v) => state = state.copyWith(targetBreakHours: v);
+  void setBreakMins(int v) => state = state.copyWith(targetBreakMins: v);
   void setStartTime(int h, int m) =>
       state = state.copyWith(defaultStartHour: h, defaultStartMinute: m);
   void setLeadMins(int v) => state = state.copyWith(notificationLeadMins: v);
@@ -104,7 +104,7 @@ class SettingsNotifier extends _$SettingsNotifier {
       await repo.saveProfile(
         UserProfilesCompanion(
           targetWorkHours: Value(state.targetWorkHours),
-          targetBreakHours: Value(state.targetBreakHours),
+          targetBreakHours: Value(state.targetBreakMins / 60.0),
           defaultStartHour: Value(state.defaultStartHour),
           defaultStartMinute: Value(state.defaultStartMinute),
           notificationLeadMins: Value(state.notificationLeadMins),
@@ -155,14 +155,14 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _workHoursCtrl;
-  late TextEditingController _breakHoursCtrl;
+  late TextEditingController _breakMinsCtrl;
   bool _controllersInit = false;
 
   @override
   void dispose() {
     if (_controllersInit) {
       _workHoursCtrl.dispose();
-      _breakHoursCtrl.dispose();
+      _breakMinsCtrl.dispose();
     }
     super.dispose();
   }
@@ -170,7 +170,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _initControllers(SettingsFormState s) {
     if (!_controllersInit) {
       _workHoursCtrl = TextEditingController(text: s.targetWorkHours.toString());
-      _breakHoursCtrl = TextEditingController(text: s.targetBreakHours.toString());
+      _breakMinsCtrl = TextEditingController(text: s.targetBreakMins.toString());
       _controllersInit = true;
     }
   }
@@ -191,7 +191,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (!_formKey.currentState!.validate()) return;
     final notifier = ref.read(settingsNotifierProvider.notifier);
     notifier.setWorkHours(double.tryParse(_workHoursCtrl.text) ?? s.targetWorkHours);
-    notifier.setBreakHours(double.tryParse(_breakHoursCtrl.text) ?? s.targetBreakHours);
+    notifier.setBreakMins(int.tryParse(_breakMinsCtrl.text) ?? s.targetBreakMins);
     await notifier.save();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -294,12 +294,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const Divider(),
               _InlineTextInput(
-                label: 'Target Break Hours',
-                controller: _breakHoursCtrl,
-                suffix: 'hrs',
+                label: 'Target Break Time',
+                controller: _breakMinsCtrl,
+                suffix: 'mins',
+                isInteger: true,
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'Required';
-                  final n = double.tryParse(v);
+                  final n = int.tryParse(v);
                   if (n == null || n < 0) return 'Invalid';
                   return null;
                 },
@@ -534,12 +535,14 @@ class _InlineTextInput extends StatelessWidget {
     required this.controller,
     required this.suffix,
     required this.validator,
+    this.isInteger = false,
   });
 
   final String label;
   final TextEditingController controller;
   final String suffix;
   final FormFieldValidator<String> validator;
+  final bool isInteger;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -553,11 +556,15 @@ class _InlineTextInput extends StatelessWidget {
               child: TextFormField(
                 controller: controller,
                 textAlign: TextAlign.end,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                ],
+                keyboardType: isInteger
+                    ? TextInputType.number
+                    : const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: isInteger
+                    ? [FilteringTextInputFormatter.digitsOnly]
+                    : [
+                        FilteringTextInputFormatter.allow(
+                            RegExp(r'^\d+\.?\d{0,2}'))
+                      ],
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
