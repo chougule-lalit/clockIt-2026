@@ -6,7 +6,7 @@ part of 'shift_notifier.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$todayShiftStreamHash() => r'803c8634da0384102ca1cd8d40e1ac995d7f6b07';
+String _$todayShiftStreamHash() => r'65726119be740f79c5a11ee7213fe974fad92a02';
 
 /// Watches today's shift live from the database (for reactive UI rebuilds).
 ///
