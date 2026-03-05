@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/notification_service.dart';
 import '../../data/database/app_database.dart';
 import '../../data/repositories/shift_repository.dart';
+import '../../data/repositories/timeline_entry_repository.dart';
 import '../../data/repositories/user_profile_repository.dart';
 
 part 'shift_notifier.g.dart';
@@ -205,3 +206,12 @@ Stream<DailyShift?> todayShiftStream(Ref ref) {
   final repo = ref.watch(shiftRepositoryProvider);
   return repo.watchTodayShift();
 }
+
+final entriesForShiftProvider =
+    StreamProvider.family.autoDispose<List<TimelineEntry>, int>((ref, shiftId) {
+  return ref.watch(timelineEntryRepositoryProvider).watchEntriesForShift(shiftId);
+});
+
+final allCategoriesProvider = StreamProvider.autoDispose<List<ShiftCategory>>((ref) {
+  return ref.watch(shiftRepositoryProvider).watchAllCategories();
+});

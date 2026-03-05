@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/database/app_database.dart';
 import '../../data/repositories/shift_repository.dart';
 import '../../data/repositories/timeline_entry_repository.dart';
+import '../tasks/tasks_screen.dart';
 import 'shift_notifier.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,7 +73,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: _selectedIndex == 0
           ? const _HomeBody()
-          : _ComingSoonBody(label: _labels[_selectedIndex]),
+          : _selectedIndex == 1
+              ? const TasksScreen()
+              : _ComingSoonBody(label: _labels[_selectedIndex]),
       floatingActionButton: _selectedIndex == 0 && shiftId != null
           ? FloatingActionButton(
               backgroundColor: AppColors.accentPrimary,
@@ -168,11 +171,7 @@ class _TimelineHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final entriesAsync = ref.watch(
-      StreamProvider((r) => r
-          .read(timelineEntryRepositoryProvider)
-          .watchEntriesForShift(state.shift.id)),
-    );
+    final entriesAsync = ref.watch(entriesForShiftProvider(state.shift.id));
 
     final targetHours = state.profile.targetWorkHours;
 
@@ -634,11 +633,7 @@ class _TimelineSliver extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final entriesAsync = ref.watch(
-      StreamProvider((r) => r
-          .read(timelineEntryRepositoryProvider)
-          .watchEntriesForShift(shiftId)),
-    );
+    final entriesAsync = ref.watch(entriesForShiftProvider(shiftId));
 
     final profile = state.profile;
     final startHour = profile.defaultStartHour;
@@ -986,10 +981,7 @@ class _CollapsedSlotContent extends ConsumerWidget {
       );
     }
 
-    final categories = ref.watch(
-      StreamProvider(
-          (r) => r.read(shiftRepositoryProvider).watchAllCategories()),
-    );
+    final categories = ref.watch(allCategoriesProvider);
 
     final catName = categories.maybeWhen(
       data: (cats) => cats
@@ -1126,10 +1118,7 @@ class _ExpandedSlotContentState extends ConsumerState<_ExpandedSlotContent> {
 
   @override
   Widget build(BuildContext context) {
-    final catsAsync = ref.watch(
-      StreamProvider(
-          (r) => r.read(shiftRepositoryProvider).watchAllCategories()),
-    );
+    final catsAsync = ref.watch(allCategoriesProvider);
 
     return Padding(
       padding: const EdgeInsets.all(14),
@@ -1346,10 +1335,7 @@ class _AddBlockBottomSheetState extends ConsumerState<_AddBlockBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final catsAsync = ref.watch(
-      StreamProvider(
-          (r) => r.read(shiftRepositoryProvider).watchAllCategories()),
-    );
+    final catsAsync = ref.watch(allCategoriesProvider);
 
     final durationMin = _endTime.difference(_startTime).inMinutes;
     final durationStr = durationMin > 0
